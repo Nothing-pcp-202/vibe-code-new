@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ระบบรายงานสภาพอากาศ</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Prompt', sans-serif; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scroll-bar-width: none; }
+    </style>
+</head>
+<body class="bg-slate-900 text-white min-h-screen flex items-center justify-center p-4">
+
+    <div id="main-dashboard" class="max-w-4xl w-full bg-slate-800/80 backdrop-blur-md rounded-3xl p-6 md:p-8 shadow-2xl border border-slate-700 transition-all duration-300">
+        
+        <div class="text-center mb-6">
+            <h1 class="text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-400">
+                <i class="fa-solid fa-cloud-sun-rain mr-2"></i>รายงานสภาพอากาศ
+            </h1>
+            <p class="text-slate-400 mt-2 text-sm">ข้อมูลอัปเดตล่าสุด (เรียลไทม์): <span id="update-time" class="text-slate-300 font-bold">กำลังโหลด...</span></p>
+            <p class="text-cyan-400 font-extrabold mt-1.5 text-base">
+                <i class="fa-solid fa-location-dot mr-1"></i> <span id="location-name">กำลังค้นหาพิกัดเริ่มต้น...</span>
+            </p>
+        </div>
+
+        <div class="max-w-md mx-auto mb-8 relative">
+            <div class="bg-slate-700/40 rounded-xl border border-slate-600/50 flex items-center p-1.5 shadow-md">
+                <span class="text-slate-400 px-3"><i class="fa-solid fa-magnifying-glass"></i></span>
+                <input type="text" id="search-input" placeholder="คลิกเลือก หรือพิมพ์ชื่อจังหวัดภาษาไทย/อังกฤษ" autocomplete="off" class="bg-transparent text-white w-full focus:outline-none text-sm font-bold" onfocus="showAllProvinces()" oninput="filterProvinces(this.value)">
+            </div>
+            
+            <div id="suggestions-box" class="absolute left-0 right-0 mt-2 bg-slate-800 border border-slate-700 rounded-xl shadow-2xl hidden z-50 overflow-hidden max-h-64 overflow-y-auto no-scrollbar">
+                </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            
+            <div onclick="openPage('weather-page')" class="bg-slate-700/40 hover:bg-slate-700/70 p-6 rounded-2xl border border-slate-600/50 flex flex-col justify-between cursor-pointer transition duration-300 transform hover:-translate-y-1 hover:shadow-xl group">
+                <div>
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-xl font-extrabold text-blue-300 flex items-center">
+                            <i class="fa-solid fa-temperature-half mr-2"></i>สภาพอากาศวันนี้
+                        </h2>
+                        <span class="text-xs text-blue-400 group-hover:underline font-bold">ดูข้อมูลพยากรณ์ล่วงหน้า <i class="fa-solid fa-arrow-right text-[10px]"></i></span>
+                    </div>
+                    <div class="flex items-center justify-between my-4">
+                        <div class="text-5xl font-extrabold" id="main-temp">--°C</div>
+                        <div id="main-weather-icon" class="text-5xl">
+                            <i class="fa-solid fa-cloud-sun text-slate-500"></i>
+                        </div>
+                    </div>
+                </div>
+                <div class="border-t border-slate-600/50 pt-4 mt-4 flex justify-between text-sm text-slate-300">
+                    <span>สถานะ: <strong id="main-weather-desc" class="text-white font-extrabold">-</strong></span>
+                    <span>ความชื้น: <strong id="main-humidity" class="text-white font-extrabold">--%</strong></span>
+                </div>
+            </div>
+
+            <div onclick="openPage('pm25-page')" class="bg-slate-700/40 hover:bg-slate-700/70 p-6 rounded-2xl border border-slate-600/50 flex flex-col justify-between cursor-pointer transition duration-300 transform hover:-translate-y-1 hover:shadow-xl group">
+                <div>
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-xl font-extrabold text-emerald-300 flex items-center">
+                            <i class="fa-solid fa-smog mr-2"></i>ค่าฝุ่น PM2.5
+                        </h2>
+                        <span class="text-xs text-emerald-400 group-hover:underline font-bold">ดูข้อมูลมลพิษอย่างละเอียด <i class="fa-solid fa-arrow-right text-[10px]"></i></span>
+                    </div>
+                    <div class="flex items-center justify-between my-4">
+                        <div>
+                            <div class="text-5xl font-extrabold" id="main-pm25">--</div>
+                            <span class="text-[10px] text-slate-400 font-extrabold">µg/m³</span>
+                        </div>
+                        <div id="main-aqi-badge" class="w-14 h-14 rounded-full flex items-center justify-center text-xs font-extrabold text-slate-900 shadow-md bg-slate-600">-</div>
+                    </div>
+                </div>
+                <div class="border-t border-slate-600/50 pt-4 mt-4 flex justify-between text-sm text-slate-300">
+                    <span>คุณภาพอากาศ: <strong id="main-aqi-status" class="text-white font-extrabold">-</strong></span>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <div id="weather-page" class="fixed inset-0 bg-slate-950 hidden z-50 flex flex-col p-6 overflow-y-auto">
+        <div class="max-w-2xl w-full mx-auto my-auto">
+            <button onclick="closePage('weather-page')" class="mb-6 flex items-center gap-2 text-slate-400 hover:text-white font-bold transition duration-150">
+                <i class="fa-solid fa-arrow-left text-lg"></i> ย้อนกลับหน้าหลัก
+            </button>
+            
+            <h3 class="text-2xl font-extrabold text-blue-400 mb-1 flex items-center">
+                <i class="fa-solid fa-clock-rotate-left mr-2"></i> ข้อมูลสภาพอากาศรายวัน
+            </h3>
+            <p class="text-xs text-slate-400 mb-6">💡 คลิกการ์ดในแถบสไลด์ด้านล่างเพื่อเลือกดูข้อมูลเจาะลึกของแต่ละวัน</p>
+            
+            <div id="timeline-slider" class="flex gap-4 overflow-x-auto pb-6 pt-2 no-scrollbar scroll-smooth snap-x">
+                <div class="text-center text-slate-500 w-full">กำลังโหลดข้อมูลสภาพอากาศ...</div>
+            </div>
+
+            <div class="mt-2 border-t border-slate-800 pt-6">
+                <div class="flex justify-between items-center mb-4">
+                    <span class="text-base font-extrabold text-cyan-400 flex items-center gap-2">
+                        <i class="fa-solid fa-eye-low-vision text-lg animate-pulse"></i> ข้อมูลเจาะลึกของ: <span id="detail-target-day" class="text-white underline decoration-cyan-500 font-extrabold">-</span>
+                    </span>
+                </div>
+                
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                    <div class="bg-slate-900 p-4 rounded-2xl border border-slate-800 flex flex-col justify-between">
+                        <span class="text-slate-400 text-xs font-bold flex items-center gap-1.5 mb-2">
+                            <i class="fa-solid fa-circle-info text-blue-400"></i> สภาพอากาศ
+                        </span>
+                        <span id="detail-desc" class="font-extrabold text-white text-sm truncate">-</span>
+                    </div>
+                    <div class="bg-slate-900 p-4 rounded-2xl border border-slate-800 flex flex-col justify-between">
+                        <span class="text-slate-400 text-xs font-bold flex items-center gap-1.5 mb-2">
+                            <i class="fa-solid fa-droplet text-cyan-400"></i> ความชื้น
+                        </span>
+                        <span id="detail-humidity-val" class="font-extrabold text-cyan-300 text-lg">--%</span>
+                    </div>
+                    <div class="bg-slate-900 p-4 rounded-2xl border border-slate-800 flex flex-col justify-between">
+                        <span class="text-slate-400 text-xs font-bold flex items-center gap-1.5 mb-2">
+                            <i class="fa-solid fa-eye text-emerald-400"></i> ทัศนวิสัย
+                        </span>
+                        <span id="detail-visibility" class="font-extrabold text-emerald-300 text-lg">-- กม.</span>
+                    </div>
+                    <div class="bg-slate-900 p-4 rounded-2xl border border-slate-800 flex flex-col justify-between">
+                        <span class="text-slate-400 text-xs font-bold flex items-center gap-1.5 mb-2">
+                            <i class="fa-solid fa-wind text-amber-400"></i> ความเร็วลม
+                        </span>
+                        <span id="detail-wind-speed" class="font-extrabold text-amber-300 text-lg">-- กม./ชม.</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="pm25-page" class="fixed inset-0 bg-slate-950 hidden z-50 flex flex-col p-6 overflow-y-auto">
+        <div class="max-w-xl w-full mx-auto my-auto">
+            <button onclick="closePage('pm25-page')" class="mb-6 flex items-center gap-2 text-slate-400 hover:text-white font-bold transition duration-150">
+                <i class="fa-solid fa-arrow-left text-lg"></i> ย้อนกลับหน้าหลัก
+            </button>
+            
+            <div class="mb-6">
+                <span class="text-xs text-emerald-400 font-extrabold tracking-wider uppercase">Air Quality Index</span>
+                <h3 class="text-2xl font-extrabold text-white flex items-center mt-1">
+                    <i class="fa-solid fa-chart-pie mr-2 text-emerald-400"></i> ดัชนีคุณภาพอากาศและมลพิษ
+                </h3>
+                <p class="text-xs text-slate-400 mt-1">แสดงค่ามลพิษแบบเรียลไทม์ของพื้นที่ที่ท่านเลือก</p>
+            </div>
+            
+            <div class="space-y-3">
+                <div class="flex justify-between p-4 bg-slate-900/80 rounded-2xl border border-emerald-500/30 shadow-lg">
+                    <span class="font-extrabold text-emerald-300">PM2.5 (ฝุ่นละอองขนาดเล็ก)</span>
+                    <span class="font-extrabold text-white text-lg"><span id="detail-pm25">--</span> µg/m³</span>
+                </div>
+                <div class="flex justify-between p-4 bg-slate-900/40 rounded-2xl border border-slate-800">
+                    <span class="text-slate-300 font-bold">PM10 (ฝุ่นละอองขนาดใหญ่)</span>
+                    <span class="font-extrabold text-white" id="detail-pm10">-- µg/m³</span>
+                </div>
+                <div class="flex justify-between p-4 bg-slate-900/40 rounded-2xl border border-slate-800">
+                    <span class="text-slate-300 font-bold">NO₂ (ไนโตรเจนไดออกไซด์)</span>
+                    <span class="font-extrabold text-white" id="detail-no2">-- µg/m³</span>
+                </div>
+                <div class="flex justify-between p-4 bg-slate-900/40 rounded-2xl border border-slate-800">
+                    <span class="text-slate-300 font-bold">O₃ (โอโซน)</span>
+                    <span class="font-extrabold text-white" id="detail-o3">-- µg/m³</span>
+                </div>
+                
+                <div class="p-5 bg-slate-900 rounded-2xl border border-slate-800 text-sm text-slate-300 mt-6 leading-relaxed shadow-xl">
+                    <p class="font-bold text-slate-200 mb-2 flex items-center gap-1.5 text-base">
+                        <i class="fa-solid fa-user-shield text-emerald-400"></i> ข้อแนะนำสำหรับการปฏิบัติตน:
+                    </p>
+                    <p id="detail-advice" class="text-slate-300">-</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_KEY = 'c09af716b54164054d756cb55b3b76a0';
+        let currentLat = 13.7563;
+        let currentLon = 100.5018;
+        let globalTimelineData = [];
+
+        // ฐานข้อมูลรายชื่อ 77 จังหวัด
+        const thailandProvinces = [
+            { th: "กรุงเทพมหานคร", en: "Bangkok" }, { th: "กระบี่", en: "Krabi" }, { th: "กาญจนบุรี", en: "Kanchanaburi" },
+            { th: "กาฬสินธุ์", en: "Kalasin" }, { th: "กำแพงเพชร", en: "Kamphaeng Phet" }, { th: "ขอนแก่น", en: "Khon Kaen" },
+            { th: "จันทบุรี", en: "Chanthaburi" }, { th: "ฉะเชิงเทรา", en: "Chachoengsao" }, { th: "ชลบุรี", en: "Chonburi" },
+            { th: "ชัยนาท", en: "Chai Nat" }, { th: "ชัยภูมิ", en: "Chaiyaphum" }, { th: "ชุมพร", en: "Chumphon" },
+            { th: "เชียงราย", en: "Chiang Rai" }, { th: "เชียงใหม่", en: "Chiang Mai" }, { th: "ตรัง", en: "Trang" },
+            { th: "ตราด", en: "Trat" }, { th: "ตาก", en: "Tak" }, { th: "นครนายก", en: "Nakhon Nayok" },
+            { th: "นครปฐม", en: "Nakhon Pathom" }, { th: "นครพนม", en: "Nakhon Phanom" }, { th: "นครราชสีมา", en: "Nakhon Ratchasima" },
+            { th: "นครศรีธรรมราช", en: "Nakhon Si Thammarat" }, { th: "นครสวรรค์", en: "Nakhon Sawan" }, { th: "นนทบุรี", en: "Nonthaburi" },
+            { th: "นราธิวาส", en: "Narathiwat" }, { th: "น่าน", en: "Nan" }, { th: "บึงกาฬ", en: "Bueng Kan" },
+            { th: "บุรีรัมย์", en: "Buriram" }, { th: "ปทุมธานี", en: "Pathum Thani" }, { th: "ประจวบคีรีขันธ์", en: "Prachuap Khiri Khan" },
+            { th: "ปราจีนบุรี", en: "Prachinburi" }, { th: "ปัตตานี", en: "Pattani" }, { th: "พระนครศรีอยุธยา", en: "Phra Nakhon Si Ayutthaya" },
+            { th: "พะเยา", en: "Phayao" }, { th: "พังงา", en: "Phang Nga" }, { th: "พัทลุง", en: "Phatthalung" },
+            { th: "พิจิตร", en: "Phichit" }, { th: "พิษณุโลก", en: "Phitsanulok" }, { th: "เพชรบุรี", en: "Phetchaburi" },
+            { th: "เพชรบูรณ์", en: "Phetchabun" }, { th: "แพร่", en: "Phrae" }, { th: "ภูเก็ต", en: "Phuket" },
+            { th: "มหาสารคาม", en: "Maha Sarakham" }, { th: "มุกดาหาร", en: "Mukdahan" }, { th: "แม่ฮ่องสอน", en: "Mae Hong Son" },
+            { th: "ยโสธร", en: "Yasothon" }, { th: "ยะลา", en: "Yala" }, { th: "ร้อยเอ็ด", en: "Roi Et" },
+            { th: "ระนอง", en: "Ranong" }, { th: "ระยอง", en: "Rayong" }, { th: "ราชบุรี", en: "Ratchaburi" },
+            { th: "ลพบุรี", en: "Lopburi" }, { th: "ลำปาง", en: "Lampang" }, { th: "ลำพูน", en: "Lamphun" },
+            { th: "เลย", en: "Loe" }, { th: "ศรีสะเกษ", en: "Sisaket" }, { th: "สกลนคร", en: "Sakon Nakhon" },
+            { th: "สงขลา", en: "Songkhla" }, { th: "สตูล", en: "Satun" }, { th: "สมุทรปราการ", en: "Samut Prakan" },
+            { th: "สมุทรสงคราม", en: "Samut Songkhram" }, { th: "สมุทรสาคร", en: "Samut Sakhon" }, { th: "สระแก้ว", en: "Sa Kaeo" },
+            { th: "สระบุรี", en: "Saraburi" }, { th: "สิงห์บุรี", en: "Sing Buri" }, { th: "สุโขทัย", en: "Sukhothai" },
+            { th: "สุพรรณบุรี", en: "Suphan Buri" }, { th: "สุราษฎร์ธานี", en: "Surat Thani" }, { th: "สุรินทร์", en: "Surin" },
+            { th: "หนองคาย", en: "Nong Khai" }, { th: "หนองบัวลำภู", en: "Nong Bua Lamphu" }, { th: "อ่างทอง", en: "Ang Thong" },
+            { th: "อำนาจเจริญ", en: "Amnat Charoen" }, { th: "อุดรธานี", en: "Udon Thani" }, { th: "อุตรดิตถ์", en: "Uttaradit" },
+            { th: "อุทัยธานี", en: "Uthai Thani" }, { th: "อุบลราชธานี", en: "Ubon Ratchathani" }
+        ].sort((a, b) => a.th.localeCompare(b.th, 'th'));
+
+        // ฟังก์ชันเปิดหน้าใหม่แบบ Fullscreen
+        function openPage(pageId) {
+            document.getElementById('main-dashboard').classList.add('opacity-0', 'scale-95');
+            setTimeout(() => {
+                document.getElementById('main-dashboard').classList.add('hidden');
+                document.getElementById(pageId).classList.remove('hidden');
+            }, 150);
+        }
+
+        // ฟังก์ชันปิดหน้า Fullscreen เพื่อกลับสู่ Dashboard
+        function closePage(pageId) {
+            document.getElementById(pageId).classList.add('hidden');
+            document.getElementById('main-dashboard').classList.remove('hidden');
+            setTimeout(() => {
+                document.getElementById('main-dashboard').classList.remove('opacity-0', 'scale-95');
+            }, 50);
+        }
+
+        window.onclick = function(event) {
+            if (!event.target.closest('#search-input') && !event.target.closest('#suggestions-box')) {
+                document.getElementById('suggestions-box').classList.add('hidden');
+            }
+        }
+
+        function showAllProvinces() {
+            renderSuggestions(thailandProvinces);
+        }
+
+        function filterProvinces(value) {
+            const query = value.trim().toLowerCase();
+            if (!query) {
+                renderSuggestions(thailandProvinces);
+                return;
+            }
+            const filtered = thailandProvinces.filter(province => 
+                province.th.toLowerCase().includes(query) || 
+                province.en.toLowerCase().includes(query)
+            );
+            renderSuggestions(filtered);
+        }
+
+        function renderSuggestions(list) {
+            const suggestionsBox = document.getElementById('suggestions-box');
+            suggestionsBox.innerHTML = '';
+
+            if (list.length === 0) {
+                suggestionsBox.classList.add('hidden');
+                return;
+            }
+
+            suggestionsBox.classList.remove('hidden');
+            list.forEach(province => {
+                const item = document.createElement('div');
+                item.className = "px-4 py-3 hover:bg-slate-700 cursor-pointer text-sm font-bold border-b border-slate-700/50 last:border-0 transition duration-150 flex items-center justify-between group text-slate-200 hover:text-white";
+                
+                item.innerHTML = `
+                    <span><i class="fa-solid fa-location-dot text-slate-500 group-hover:text-cyan-400 mr-2 transition"></i>${province.th} (${province.en})</span>
+                    <span class="text-[10px] text-slate-500 font-medium">คลิกเลือก</span>
+                `;
+
+                item.onclick = function() {
+                    document.getElementById('search-input').value = province.th;
+                    suggestionsBox.classList.add('hidden');
+                    getCoordsAndFetch(province.en);
+                };
+                suggestionsBox.appendChild(item);
+            });
+        }
+
+        async function getCoordsAndFetch(cityName) {
+            try {
+                const geoUrl = `https://api.openweathermap.org/geo/1.0/direct?q=${encodeURIComponent(cityName)},TH&limit=1&appid=${API_KEY}`;
+                const response = await fetch(geoUrl);
+                const data = await response.json();
+
+                if (data && data.length > 0) {
+                    currentLat = data[0].lat;
+                    currentLon = data[0].lon;
+                    fetchAllData();
+                }
+            } catch (error) {
+                console.error("Error geocoding city name: ", error);
+            }
+        }
+
+        async function fetchAllData() {
+            document.getElementById('update-time').innerText = "กำลังอัปเดตแบบเรียลไทม์...";
+            try {
+                const weatherUrl = `https://api.openweathermap.org/data/2.5/weather?lat=${currentLat}&lon=${currentLon}&appid=${API_KEY}&units=metric&lang=th`;
+                const weatherResponse = await fetch(weatherUrl);
+                const weatherData = await weatherResponse.json();
+
+                const airPollutionUrl = `https://api.openweathermap.org/data/2.5/air_pollution?lat=${currentLat}&lon=${currentLon}&appid=${API_KEY}`;
+                const airResponse = await fetch(airPollutionUrl);
+                const airData = await airResponse.json();
+
+                const forecastUrl = `https://api.openweathermap.org/data/2.5/forecast?lat=${currentLat}&lon=${currentLon}&appid=${API_KEY}&units=metric&lang=th`;
+                const forecastResponse = await fetch(forecastUrl);
+                const forecastData = await forecastResponse.json();
+
+                if (weatherResponse.ok && airResponse.ok && forecastResponse.ok) {
+                    const localTitle = weatherData.name === "Nong Yat" ? "นครพนม" : weatherData.name;
+                    document.getElementById('location-name').innerText = `${localTitle}, ประเทศไทย`;
+                    
+                    updateWeatherUI(weatherData);
+                    updateAirPollutionUI(airData);
+                    generateTimelineSlider(weatherData, forecastData);
+                    
+                    const now = new Date();
+                    document.getElementById('update-time').innerText = now.toLocaleTimeString('th-TH') + " น.";
+                }
+            } catch (error) {
+                console.error(error);
+                document.getElementById('update-time').innerText = "ดึงข้อมูลล้มเหลว";
+            }
+        }
+
+        function updateWeatherUI(data) {
+            document.getElementById('main-temp').innerText = `${Math.round(data.main.temp)}°C`;
+            document.getElementById('main-humidity').innerText = `${data.main.humidity}%`;
+            document.getElementById('main-weather-desc').innerText = data.weather[0].description;
+            
+            const iconCode = data.weather[0].icon;
+            document.getElementById('main-weather-icon').innerHTML = `<img src="https://openweathermap.org/img/wn/${iconCode}@2x.png" class="w-16 h-16 mx-auto">`;
+        }
+
+        function generateTimelineSlider(currentWeather, forecastData) {
+            const slider = document.getElementById('timeline-slider');
+            slider.innerHTML = ''; 
+
+            const daysTH = ['อา.', 'จ.', 'อ.', 'พ.', 'พฤ.', 'ศ.', 'ส.'];
+            const today = new Date();
+            globalTimelineData = [];
+
+            // วันนี้
+            globalTimelineData.push({
+                id: "current-today",
+                label: "วันนี้",
+                dateStr: `${daysTH[today.getDay()]} ${today.getDate()}`,
+                temp: Math.round(currentWeather.main.temp),
+                desc: currentWeather.weather[0].description,
+                humidity: `${currentWeather.main.humidity}%`,
+                visibility: `${(currentWeather.visibility / 1000).toFixed(1)} กม.`,
+                windSpeed: `${(currentWeather.wind.speed * 3.6).toFixed(1)} กม./ชม.`,
+                iconUrl: `https://openweathermap.org/img/wn/${currentWeather.weather[0].icon}@2x.png`
+            });
+
+            // ล่วงหน้า 4 วัน
+            const list = forecastData.list;
+            let addedDays = 0;
+            let lastDateCheck = today.getDate();
+
+            for (let item of list) {
+                let fDate = new Date(item.dt * 1000);
+                if (fDate.getDate() !== lastDateCheck && fDate.getHours() >= 10 && fDate.getHours() <= 14) {
+                    addedDays++;
+                    globalTimelineData.push({
+                        id: `forecast-${addedDays}`,
+                        label: `ล่วงหน้า ${addedDays} วัน`,
+                        dateStr: `${daysTH[fDate.getDay()]} ${fDate.getDate()}`,
+                        temp: Math.round(item.main.temp),
+                        desc: item.weather[0].description,
+                        humidity: `${item.main.humidity}%`,
+                        visibility: `${(item.visibility / 1000).toFixed(1)} กม.`,
+                        windSpeed: `${(item.wind.speed * 3.6).toFixed(1)} กม./ชม.`,
+                        iconUrl: `https://openweathermap.org/img/wn/${item.weather[0].icon}@2x.png`
+                    });
+                    lastDateCheck = fDate.getDate();
+                    if (addedDays >= 4) break;
+                }
+            }
+
+            globalTimelineData.forEach((item) => {
+                const card = document.createElement('div');
+                card.id = `card-${item.id}`;
+                card.setAttribute('onclick', `selectTimelineCard('${item.id}')`);
+                card.className = `flex-none w-28 snap-center p-4 rounded-2xl border text-center cursor-pointer transition-all duration-300 timeline-card-item bg-slate-700/30 border-slate-600/50`;
+                
+                card.innerHTML = `
+                    <span class="block text-[10px] uppercase font-bold text-slate-400 tracking-wider">${item.label}</span>
+                    <span class="block text-sm font-bold mt-1 text-white">${item.dateStr}</span>
+                    <img src="${item.iconUrl}" class="w-12 h-12 mx-auto my-1" alt="weather icon">
+                    <span class="block text-lg font-extrabold text-white">${item.temp}°C</span>
+                    <span class="block text-[10px] text-slate-300 truncate mt-1" title="${item.desc}">${item.desc}</span>
+                `;
+                slider.appendChild(card);
+            });
+
+            selectTimelineCard("current-today");
+        }
+
+        function selectTimelineCard(itemId) {
+            document.querySelectorAll('.timeline-card-item').forEach(card => {
+                card.className = "flex-none w-28 snap-center p-4 rounded-2xl border text-center cursor-pointer transition-all duration-300 timeline-card-item bg-slate-700/20 border-slate-700/60 opacity-50 scale-95";
+            });
+
+            const activeCard = document.getElementById(`card-${itemId}`);
+            if (activeCard) {
+                activeCard.className = "flex-none w-28 snap-center p-4 rounded-2xl border text-center cursor-pointer transition-all duration-300 timeline-card-item bg-slate-700/90 border-cyan-400 ring-4 ring-cyan-500/30 opacity-100 scale-105 shadow-lg shadow-cyan-500/10";
+            }
+
+            const selectedData = globalTimelineData.find(item => item.id === itemId);
+            if (selectedData) {
+                document.getElementById('detail-target-day').innerText = `${selectedData.label} (${selectedData.dateStr})`;
+                document.getElementById('detail-desc').innerText = selectedData.desc;
+                document.getElementById('detail-humidity-val').innerText = selectedData.humidity;
+                document.getElementById('detail-visibility').innerText = selectedData.visibility;
+                document.getElementById('detail-wind-speed').innerText = selectedData.windSpeed;
+            }
+        }
+
+        function updateAirPollutionUI(data) {
+            const components = data.list[0].components;
+            const pm25 = components.pm2_5;
+            
+            document.getElementById('main-pm25').innerText = pm25.toFixed(1);
+            document.getElementById('detail-pm25').innerText = pm25.toFixed(1);
+            document.getElementById('detail-pm10').innerText = `${components.pm10.toFixed(1)} µg/m³`;
+            document.getElementById('detail-no2').innerText = `${components.no2.toFixed(1)} µg/m³`;
+            document.getElementById('detail-o3').innerText = `${components.o3.toFixed(1)} µg/m³`;
+
+            const badge = document.getElementById('main-aqi-badge');
+            const status = document.getElementById('main-aqi-status');
+            const advice = document.getElementById('detail-advice');
+
+            if (pm25 <= 15) {
+                badge.className = "w-14 h-14 rounded-full flex items-center justify-center text-xs font-bold text-slate-900 bg-sky-400 shadow-md";
+                badge.innerText = "ดีมาก"; status.innerText = "ดีมาก (ปลอดภัย)"; status.className = "font-bold text-sky-400";
+                advice.innerText = "คุณภาพอากาศดีเยี่ยม เหมาะสำหรับกิจกรรมกลางแจ้งทุกประเภท.";
+            } else if (pm25 <= 25) {
+                badge.className = "w-14 h-14 rounded-full flex items-center justify-center text-xs font-bold text-slate-900 bg-emerald-400 shadow-md";
+                badge.innerText = "ดี"; status.innerText = "ดี (ปลอดภัย)"; status.className = "font-bold text-emerald-400";
+                advice.innerText = "คุณภาพอากาศดี สามารถทำกิจกรรมกลางแจ้งได้ตามปกติ.";
+            } else if (pm25 <= 37.5) {
+                badge.className = "w-14 h-14 rounded-full flex items-center justify-center text-xs font-bold text-slate-900 bg-yellow-400 shadow-md";
+                badge.innerText = "ปานกลาง"; status.innerText = "ปานกลาง"; status.className = "font-bold text-yellow-400";
+                advice.innerText = "ประชาชนทั่วไปทำกิจกรรมกลางแจ้งได้ปกติ แต่กลุ่มเสี่ยงควรคอยสังเกตอาการ.";
+            } else if (pm25 <= 75) {
+                badge.className = "w-14 h-14 rounded-full flex items-center justify-center text-xs font-bold text-slate-900 bg-orange-400 shadow-md";
+                badge.innerText = "เริ่มมีผล"; status.innerText = "เริ่มมีผลกระทบต่อสุขภาพ"; status.className = "font-bold text-orange-400";
+                advice.innerText = "เริ่มมีผลกระทบ ควรลดระยะเวลาทำกิจกรรมกลางแจ้ง และสวมหน้ากากอนามัยเมื่อออกข้างนอก.";
+            } else {
+                badge.className = "w-14 h-14 rounded-full flex items-center justify-center text-xs font-bold text-white bg-red-500 shadow-md animate-pulse";
+                badge.innerText = "มีผลมาก"; status.innerText = "อันตรายต่อสุขภาพ"; status.className = "font-bold text-red-500";
+                advice.innerText = "งดกิจกรรมกลางแจ้งทุกชนิด! ประชาชนทุกคนควรสวมหน้ากาก N95 ตลอดเวลาเมื่ออยู่ข้างนอก.";
+            }
+        }
+
+        window.onload = function() {
+            fetchAllData();
+            setInterval(fetchAllData, 600000);
+        };
+    </script>
+</body>
+</html>
